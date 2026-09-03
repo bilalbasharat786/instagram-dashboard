@@ -3,15 +3,18 @@ import jwt from "jsonwebtoken";
 const authMiddleware = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    const cookieToken = req.cookies?.token;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if ((!authHeader || !authHeader.startsWith("Bearer ")) && !cookieToken) {
       return res.status(401).json({
         success: false,
         message: "Authentication required.",
       });
     }
 
-    const token = authHeader.split(" ")[1];
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.split(" ")[1]
+      : cookieToken;
 
     const decoded = jwt.verify(
       token,

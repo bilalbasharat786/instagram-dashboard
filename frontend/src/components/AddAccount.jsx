@@ -6,8 +6,8 @@ const AddAccount = ({ onAccountAdded }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
     if (!username.trim()) {
       setMessage("Username enter karo.");
@@ -17,59 +17,48 @@ const AddAccount = ({ onAccountAdded }) => {
     try {
       setLoading(true);
       setMessage("");
-
-      const token = localStorage.getItem("token");
-
-      const response = await api.post(
-        "/accounts",
-        {
-          username: username.trim(),
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.post("/accounts/connect", {
+        username: username.trim(),
+      });
 
       setMessage(response.data.message);
       setUsername("");
 
-      if (onAccountAdded) {
-        onAccountAdded();
+      if (response.data.authorizationUrl) {
+        window.open(response.data.authorizationUrl, "_blank", "noopener,noreferrer");
       }
+
+      onAccountAdded?.();
     } catch (error) {
-      setMessage(
-        error.response?.data?.message ||
-          "Account add nahi ho saka."
-      );
+      setMessage(error.response?.data?.message || "Account add nahi ho saka.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div>
-      <h3>Add Account</h3>
+    <section className="panel">
+      <div className="section-heading">
+        <div>
+          <h2>Connect Account</h2>
+          <p>Instagram username add karo, phir Electron login window mein manually login karo.</p>
+        </div>
+      </div>
 
-      <form onSubmit={handleSubmit}>
+      <form className="inline-form" onSubmit={handleSubmit}>
         <input
           type="text"
-          placeholder="Instagram username"
+          placeholder="instagram.username"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(event) => setUsername(event.target.value)}
         />
-
-        <button
-          type="submit"
-          disabled={loading}
-        >
+        <button className="primary-button" type="submit" disabled={loading}>
           {loading ? "Adding..." : "Add Account"}
         </button>
       </form>
 
-      {message && <p>{message}</p>}
-    </div>
+      {message && <div className="alert info">{message}</div>}
+    </section>
   );
 };
 

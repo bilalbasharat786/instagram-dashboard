@@ -1,25 +1,51 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import StatusBadge from "./StatusBadge";
 
 const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
+  const navigate = useNavigate();
   const [targetUsername, setTargetUsername] = useState("");
   const [selectedAccounts, setSelectedAccounts] = useState([]);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("ALL");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const handleAccountToggle = (accountId) => {
-    setSelectedAccounts((current) => {
-      if (current.includes(accountId)) {
-        return current.filter((id) => id !== accountId);
-      }
-
-      return [...current, accountId];
+  const filteredAccounts = useMemo(() => {
+    return accounts.filter((account) => {
+      const matchesSearch = account.username
+        .toLowerCase()
+        .includes(search.toLowerCase());
+      const matchesFilter = filter === "ALL" || account.status === filter;
+      return matchesSearch && matchesFilter;
     });
+  }, [accounts, search, filter]);
+
+  const connectedAccountIds = filteredAccounts
+    .filter((account) => account.status === "CONNECTED")
+    .map((account) => account._id);
+
+  const handleSelectAll = () => {
+    setSelectedAccounts((current) => [
+      ...new Set([...current, ...connectedAccountIds]),
+    ]);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleDeselectAll = () => {
+    setSelectedAccounts([]);
+  };
 
+  const handleAccountToggle = (accountId) => {
+    setSelectedAccounts((current) =>
+      current.includes(accountId)
+        ? current.filter((id) => id !== accountId)
+        : [...current, accountId]
+    );
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setMessage("");
 
     if (!targetUsername.trim()) {
@@ -28,111 +54,99 @@ const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
     }
 
     if (selectedAccounts.length === 0) {
-      setMessage("Kam az kam 1 account select karo.");
+      setMessage("Kam az kam 1 connected account select karo.");
       return;
     }
 
     try {
       setLoading(true);
+      const response = await api.post("/workflows", {
+        targetUsername: targetUsername.trim(),
+        accountIds: selectedAccounts,
+      });
 
-      const token = localStorage.getItem("token");
-
-      const response = await api.post(
-        "/workflows",
-        {
-          targetUsername: targetUsername.trim(),
-          accountIds: selectedAccounts,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      setMessage(response.data.message);
-
-      setTargetUsername("");
-      setSelectedAccounts([]);
-
-      if (onWorkflowCreated) {
-        onWorkflowCreated();
-      }
+      onWorkflowCreated?.();
+      navigate(`/workflows/${response.data.workflow._id}`);
     } catch (error) {
-      setMessage(
-        error.response?.data?.message ||
-          "Workflow create nahi ho saka."
-      );
+      setMessage(error.response?.data?.message || "Workflow create nahi ho saka.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div>
-      <h3>Create Workflow</h3>
+    <section className="panel workflow-builder">
+      <div className="section-heading">
+        <div>
+          <h2>Create Workflow</h2>
+          <p>Target username ek dafa enter hoga, phir selected accounts par saved rahega.</p>
+        </div>
+        <strong>{selectedAccounts.length} selected</strong>
+      </div>
 
       <form onSubmit={handleSubmit}>
-        <div>
-          <label>Target Username</label>
-
-          <input
-            type="text"
-            placeholder="e.g. bilal.writx"
-            value={targetUsername}
-            onChange={(e) =>
-              setTargetUsername(e.target.value)
-            }
-          />
+        <div className="form-grid">
+          <label>
+            Target Username
+            <input
+              type="text"
+              placeholder="bilal.writx"
+              value={targetUsername}
+              onChange={(event) => setTargetUsername(event.target.value)}
+            />
+          </label>
+          <label>
+            Search Accounts
+            <input
+              type="search"
+              placeholder="Search username"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+          <label>
+            Filter
+            <select value={filter} onChange={(event) => setFilter(event.target.value)}>
+              <option value="ALL">All</option>
+              <option value="CONNECTED">Connected</option>
+              <option value="AUTH_REQUIRED">Auth required</option>
+              <option value="ERROR">Error</option>
+              <option value="DISCONNECTED">Disconnected</option>
+            </select>
+          </label>
         </div>
 
-        <h4>Select Accounts</h4>
+        <div className="toolbar">
+          <button type="button" className="ghost-button" onClick={handleSelectAll}>
+            Select All Connected
+          </button>
+          <button type="button" className="ghost-button" onClick={handleDeselectAll}>
+            Deselect All
+          </button>
+        </div>
 
-        {accounts.length === 0 ? (
-          <p>No connected accounts available.</p>
-        ) : (
-          accounts.map((account) => (
-            <label
-              key={account._id}
-              style={{
-                display: "block",
-                marginBottom: "8px",
-              }}
-            >
+        <div className="account-selector">
+          {filteredAccounts.map((account) => (
+            <label className="selector-row" key={account._id}>
               <input
                 type="checkbox"
-                checked={selectedAccounts.includes(
-                  account._id
-                )}
-                onChange={() =>
-                  handleAccountToggle(account._id)
-                }
+                disabled={account.status !== "CONNECTED"}
+                checked={selectedAccounts.includes(account._id)}
+                onChange={() => handleAccountToggle(account._id)}
               />
-
-              {" "}
-
-              {account.username} — {account.status}
+              <span>@{account.username}</span>
+              <StatusBadge status={account.status} />
             </label>
-          ))
-        )}
+          ))}
+        </div>
 
-        <p>
-          Selected Accounts:{" "}
-          {selectedAccounts.length}
-        </p>
+        {message && <div className="alert warning">{message}</div>}
 
-        <button
-          type="submit"
-          disabled={loading}
-        >
-          {loading
-            ? "Creating..."
-            : "Create Workflow"}
+        <button className="primary-button" type="submit" disabled={loading}>
+          {loading ? "Creating..." : "Start Workflow Setup"}
         </button>
       </form>
-
-      {message && <p>{message}</p>}
-    </div>
+    </section>
   );
 };
 

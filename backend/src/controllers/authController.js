@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 
 import User from "../models/User.js";
 
+const normalizeEmail = (email = "") => email.trim().toLowerCase();
+
 const generateToken = (userId) => {
   return jwt.sign(
     {
@@ -15,11 +17,21 @@ const generateToken = (userId) => {
   );
 };
 
+const setAuthCookie = (res, token) => {
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+};
+
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, password } = req.body;
+    const email = normalizeEmail(req.body.email);
 
-    if (!name || !email || !password) {
+    if (!name?.trim() || !email || !password) {
       return res.status(400).json({
         success: false,
         message: "Name, email aur password required hain.",
@@ -45,12 +57,13 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = await User.create({
-      name,
+      name: name.trim(),
       email,
       password: hashedPassword,
     });
 
     const token = generateToken(user._id.toString());
+    setAuthCookie(res, token);
 
     res.status(201).json({
       success: true,
@@ -65,6 +78,13 @@ export const register = async (req, res) => {
   } catch (error) {
     console.error("Register error:", error);
 
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Is email se account already exist karta hai. Login karo.",
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Server error.",
@@ -74,7 +94,8 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const email = normalizeEmail(req.body.email);
 
     if (!email || !password) {
       return res.status(400).json({
@@ -105,6 +126,7 @@ export const login = async (req, res) => {
     }
 
     const token = generateToken(user._id.toString());
+    setAuthCookie(res, token);
 
     res.json({
       success: true,
@@ -122,6 +144,49 @@ export const login = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error.",
+    });
+  }
+};
+
+export const logout = async (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  });
+
+  res.json({
+    success: true,
+    message: "Logout successful.",
+  });
+};
+
+export const me = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select("name email createdAt");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User nahi mila.",
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("Me error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "User fetch nahi ho saka.",
     });
   }
 };

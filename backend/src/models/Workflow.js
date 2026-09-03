@@ -24,8 +24,15 @@ const workflowSchema = new mongoose.Schema(
         "PAUSED",
         "COMPLETED",
         "FAILED",
+        "CANCELLED",
       ],
       default: "DRAFT",
+    },
+
+    currentItemId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "WorkflowItem",
+      default: null,
     },
 
     totalAccounts: {
@@ -41,6 +48,36 @@ const workflowSchema = new mongoose.Schema(
     failedAccounts: {
       type: Number,
       default: 0,
+    },
+
+    skippedAccounts: {
+      type: Number,
+      default: 0,
+    },
+
+    authRequiredAccounts: {
+      type: Number,
+      default: 0,
+    },
+
+    startedAt: {
+      type: Date,
+      default: null,
+    },
+
+    pausedAt: {
+      type: Date,
+      default: null,
+    },
+
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+
+    lastError: {
+      type: String,
+      default: null,
     },
   },
   {

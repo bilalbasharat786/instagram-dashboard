@@ -4,6 +4,12 @@ import {
   createWorkflow,
   getWorkflows,
   getWorkflowById,
+  startWorkflow,
+  nextWorkflowItem,
+  completeWorkflow,
+  pauseWorkflow,
+  resumeWorkflow,
+  getWorkflowProgress,
   deleteWorkflow,
 
 } from "../controllers/workflowController.js";
@@ -29,6 +35,14 @@ router.get(
   authMiddleware,
   getWorkflowById
 );
+
+router.post("/:id/start", authMiddleware, startWorkflow);
+router.post("/:id/next", authMiddleware, nextWorkflowItem);
+router.post("/:id/complete", authMiddleware, completeWorkflow);
+router.post("/:id/pause", authMiddleware, pauseWorkflow);
+router.post("/:id/resume", authMiddleware, resumeWorkflow);
+router.get("/:id/progress", authMiddleware, getWorkflowProgress);
+
 router.delete(
   "/:id",
   authMiddleware,

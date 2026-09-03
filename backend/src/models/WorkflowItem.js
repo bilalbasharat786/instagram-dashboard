@@ -19,16 +19,39 @@ const workflowItemSchema = new mongoose.Schema(
       type: String,
       enum: [
         "PENDING",
-        "READY",
+        "IN_PROGRESS",
+        "TARGET_READY",
+        "FOLLOW_CONFIRMED",
         "COMPLETED",
-        "FAILED",
+        "AUTH_REQUIRED",
+        "ERROR",
         "SKIPPED",
       ],
       default: "PENDING",
     },
 
+    targetProfileUrl: {
+      type: String,
+      default: null,
+    },
+
     errorMessage: {
       type: String,
+      default: null,
+    },
+
+    startedAt: {
+      type: Date,
+      default: null,
+    },
+
+    targetPreparedAt: {
+      type: Date,
+      default: null,
+    },
+
+    followConfirmedAt: {
+      type: Date,
       default: null,
     },
 
