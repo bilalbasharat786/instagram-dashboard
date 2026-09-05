@@ -74,12 +74,16 @@ const postJson = async (url, token) => {
 };
 
 // ================= MODIFIED FUNCTION START =================
-const injectWorkflowControls = async (window) => {
+const injectWorkflowControls = async (window, actionType = "FOLLOW") => {
+  const safeActionType = actionType === "UNFOLLOW" ? "UNFOLLOW" : "FOLLOW";
+
   await window.webContents.executeJavaScript(`
     (() => {
       const existing = document.getElementById("instaflow-next-account");
       if (existing) return;
       let openingNext = false;
+      const actionType = ${JSON.stringify(safeActionType)};
+      const actionLabel = actionType === "UNFOLLOW" ? "Unfollow" : "Follow";
 
       // 1. Next Account Button Create aur Style Karna
       const button = document.createElement("button");
@@ -117,28 +121,60 @@ const injectWorkflowControls = async (window) => {
         }
       };
 
-      // 3. Instagram page par Follow button dhoondna (Auto-Follow logic)
+      const getButtonText = (element) => (element?.textContent || "").replace(/\\s+/g, " ").trim();
+      const findButtonByText = (texts) => {
+        const wanted = Array.isArray(texts) ? texts : [texts];
+        return Array.from(document.querySelectorAll("button, [role='button']"))
+          .find((btn) => wanted.includes(getButtonText(btn)));
+      };
+
+      const finishAction = (label = actionLabel + " clicked...") => {
+        button.textContent = label;
+        setTimeout(() => {
+          openNextAccount("Opening next...");
+        }, 800);
+      };
+
       const triggerAutoFollow = () => {
         setTimeout(() => {
-          // Instagram ke saare buttons nikalna
-          const buttons = Array.from(document.querySelectorAll("button"));
-          
-          // Woh button dhoondna jiska text exact "Follow" ho
-          const followButton = buttons.find(btn => btn.textContent.trim() === "Follow");
+          const followButton = findButtonByText("Follow");
 
           if (followButton) {
             button.textContent = "Auto-Following...";
-            followButton.click(); // Auto click the follow button
-            
-            // Follow click hone ke baad next account par switch karna (800ms baad)
-            setTimeout(() => {
-              openNextAccount("Opening next...");
-            }, 800);
+            followButton.click();
+            finishAction("Follow clicked...");
           } else {
-            // Agar "Follow" button nahi mila (e.g. Pehle se followed hai ya net slow hai)
             console.log("Follow button nahi mila ya pehle se followed hai.");
           }
-        }, 2000); // 2 second ka wait/delay
+        }, 2000);
+      };
+
+      const triggerAutoUnfollow = () => {
+        setTimeout(() => {
+          const followingButton = findButtonByText(["Following", "Requested"]);
+
+          if (!followingButton) {
+            console.log("Following/Requested button nahi mila ya account already unfollowed hai.");
+            return;
+          }
+
+          button.textContent = "Opening unfollow...";
+          followingButton.click();
+
+          setTimeout(() => {
+            const unfollowButton = findButtonByText("Unfollow");
+
+            if (unfollowButton) {
+              button.textContent = "Auto-Unfollowing...";
+              unfollowButton.click();
+              finishAction("Unfollow clicked...");
+            } else {
+              button.disabled = false;
+              button.textContent = "Click Unfollow / Next";
+              console.log("Unfollow confirmation button nahi mila.");
+            }
+          }, 900);
+        }, 2000);
       };
 
       // 4. Fallback Event Listener (Agar user khud manually kisi aur cheez par click kare)
@@ -154,9 +190,11 @@ const injectWorkflowControls = async (window) => {
 
           const clickedText = getClickedText(event.target);
 
-          if (clickedText === "Follow") {
-            button.textContent = "Follow clicked...";
-            setTimeout(() => openNextAccount("Opening next..."), 800);
+          if (
+            (actionType === "FOLLOW" && clickedText === "Follow") ||
+            (actionType === "UNFOLLOW" && clickedText === "Unfollow")
+          ) {
+            finishAction(actionLabel + " clicked...");
           }
         },
         true
@@ -165,8 +203,11 @@ const injectWorkflowControls = async (window) => {
       button.addEventListener("click", () => openNextAccount("Opening next..."));
       document.body.appendChild(button);
 
-      // Script inject hote hi Auto-Follow function ko chala dena
-      triggerAutoFollow();
+      if (actionType === "UNFOLLOW") {
+        triggerAutoUnfollow();
+      } else {
+        triggerAutoFollow();
+      }
     })();
   `);
 };
@@ -176,6 +217,7 @@ const openInstagramWindow = async ({
   accountId,
   username,
   targetUsername,
+  actionType = "FOLLOW",
   mode,
   workflowId,
   authToken,
@@ -193,7 +235,10 @@ const openInstagramWindow = async ({
   const window = new BrowserWindow({
     width: 1180,
     height: 860,
-    title: mode === "login" ? `Login @${username}` : `@${username} -> @${targetUsername}`,
+    title:
+      mode === "login"
+        ? `Login @${username}`
+        : `${actionType === "UNFOLLOW" ? "Unfollow" : "Follow"} @${username} -> @${targetUsername}`,
     webPreferences: {
       partition,
       preload: path.join(__dirname, "preload.cjs"),
@@ -222,6 +267,7 @@ const openInstagramWindow = async ({
       authToken,
       apiBaseUrl: String(apiBaseUrl).replace(/\/$/, ""),
       targetUsername,
+      actionType,
     });
 
     window.on("closed", () => {
@@ -229,10 +275,10 @@ const openInstagramWindow = async ({
     });
 
     window.webContents.on("did-finish-load", () => {
-      injectWorkflowControls(window).catch(() => {});
+      injectWorkflowControls(window, actionType).catch(() => {});
     });
 
-    await injectWorkflowControls(window);
+    await injectWorkflowControls(window, actionType);
   }
 
   return {
@@ -280,6 +326,7 @@ app.whenReady().then(async () => {
       accountId: nextAccount._id,
       username: nextAccount.username,
       targetUsername: result.workflow?.targetUsername || context.targetUsername,
+      actionType: result.workflow?.actionType || context.actionType,
       mode: "target",
       workflowId: context.workflowId,
       authToken: context.authToken,

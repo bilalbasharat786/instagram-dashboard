@@ -1,6 +1,6 @@
 # Instagram Electron Workflow Dashboard
 
-Ye MERN + Electron dashboard authorized Instagram accounts ke manual follow workflow ke liye hai. App follow button automatically click nahi karti. System target profile ko har saved account session mein open karta hai; user Instagram par Follow manually click karta hai.
+Ye MERN + Electron dashboard authorized Instagram accounts ke follow aur unfollow workflows ke liye hai. System target profile ko har saved account session mein open karta hai aur selected workflow action run karta hai. Same workflow progress save hoti rehti hai, isliye app close hone ke baad bhi resume ho sakta hai.
 
 ## Final Workflow
 
@@ -11,12 +11,12 @@ Ye MERN + Electron dashboard authorized Instagram accounts ke manual follow work
 5. Us Instagram window mein manually login karo.
 6. Dashboard mein `Mark Session Ready` dabao.
 7. Ye har Instagram account ke liye sirf initial setup mein repeat karo.
-8. Target workflow create karo, connected accounts select karo.
+8. Target workflow create karo, action mein `Follow` ya `Unfollow` choose karo, connected accounts select karo.
 9. `Start Workflow` dabao. Current account ka target profile automatically open hoga.
-10. Instagram window mein manually `Follow` dabao.
-11. Follow click detect hote hi system current account complete mark karega aur next account ka target apne saved session mein automatically open karega.
+10. Follow workflow mein app `Follow` button click karegi. Unfollow workflow mein app `Following`/`Requested` button open karke confirmation dialog ka `Unfollow` click karegi.
+11. Action complete hote hi system current account complete mark karega aur next account ka target apne saved session mein automatically open karega.
 
-Instagram target window ke top-right par floating `Next Account` button backup ke liye available hai. Agar Follow click detect na ho ya account already following ho, us button ko manually press karo.
+Instagram target window ke top-right par floating `Next Account` button backup ke liye available hai. Agar target already followed/unfollowed ho, Instagram UI load slow ho, ya action button detect na ho, us button ko manually press karo.
 
 ## Persistence
 
@@ -40,8 +40,8 @@ Iska matlab:
 ## Important Safety Notes
 
 - Instagram passwords database mein store nahi hotay.
-- Follow button user manually click karta hai.
-- Bot/follow automation, CAPTCHA bypass, proxy rotation, fingerprint spoofing ya detection bypass implement nahi hai.
+- Follow/unfollow workflow saved Electron sessions par action button click karta hai.
+- CAPTCHA bypass, proxy rotation, fingerprint spoofing ya detection bypass implement nahi hai.
 - Accounts valuable hon to Electron app data aur MongoDB credentials secure rakho.
 
 ## Tech Stack
@@ -100,7 +100,7 @@ VITE_API_URL=http://localhost:5000/api
 
 - `users`: dashboard login users
 - `connectedaccounts`: Instagram account records and desktop session status
-- `workflows`: target workflow records
+- `workflows`: target workflow records with `actionType` as `FOLLOW` or `UNFOLLOW`
 - `workflowitems`: per-account workflow progress
 - `authenticationrecords`: login/session history
 - `auditlogs`: important action logs

@@ -6,6 +6,7 @@ import StatusBadge from "./StatusBadge";
 const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
   const navigate = useNavigate();
   const [targetUsername, setTargetUsername] = useState("");
+  const [actionType, setActionType] = useState("FOLLOW");
   const [selectedAccounts, setSelectedAccounts] = useState([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("ALL");
@@ -62,6 +63,7 @@ const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
       setLoading(true);
       const response = await api.post("/workflows", {
         targetUsername: targetUsername.trim(),
+        actionType,
         accountIds: selectedAccounts,
       });
 
@@ -79,7 +81,7 @@ const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
       <div className="section-heading">
         <div>
           <h2>Create Workflow</h2>
-          <p>Target username ek dafa enter hoga, phir selected accounts par saved rahega.</p>
+          <p>Follow ya unfollow action choose karo, target username enter karo, phir accounts select karo.</p>
         </div>
         <strong>{selectedAccounts.length} selected</strong>
       </div>
@@ -94,6 +96,13 @@ const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
               value={targetUsername}
               onChange={(event) => setTargetUsername(event.target.value)}
             />
+          </label>
+          <label>
+            Action
+            <select value={actionType} onChange={(event) => setActionType(event.target.value)}>
+              <option value="FOLLOW">Follow</option>
+              <option value="UNFOLLOW">Unfollow</option>
+            </select>
           </label>
           <label>
             Search Accounts
@@ -143,7 +152,7 @@ const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
         {message && <div className="alert warning">{message}</div>}
 
         <button className="primary-button" type="submit" disabled={loading}>
-          {loading ? "Creating..." : "Start Workflow Setup"}
+          {loading ? "Creating..." : `Start ${actionType === "UNFOLLOW" ? "Unfollow" : "Follow"} Workflow Setup`}
         </button>
       </form>
     </section>

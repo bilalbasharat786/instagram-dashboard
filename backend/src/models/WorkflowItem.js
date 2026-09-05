@@ -21,7 +21,9 @@ const workflowItemSchema = new mongoose.Schema(
         "PENDING",
         "IN_PROGRESS",
         "TARGET_READY",
+        "ACTION_CONFIRMED",
         "FOLLOW_CONFIRMED",
+        "UNFOLLOW_CONFIRMED",
         "COMPLETED",
         "AUTH_REQUIRED",
         "ERROR",
@@ -51,6 +53,16 @@ const workflowItemSchema = new mongoose.Schema(
     },
 
     followConfirmedAt: {
+      type: Date,
+      default: null,
+    },
+
+    unfollowConfirmedAt: {
+      type: Date,
+      default: null,
+    },
+
+    actionConfirmedAt: {
       type: Date,
       default: null,
     },

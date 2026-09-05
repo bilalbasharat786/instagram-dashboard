@@ -6,6 +6,9 @@ import { writeAuditLog } from "../utils/audit.js";
 const cleanUsername = (username = "") =>
   username.trim().replace(/^@/, "").toLowerCase();
 
+const cleanActionType = (actionType = "FOLLOW") =>
+  String(actionType).trim().toUpperCase() === "UNFOLLOW" ? "UNFOLLOW" : "FOLLOW";
+
 const targetUrlFor = (targetUsername) =>
   `https://www.instagram.com/${encodeURIComponent(targetUsername)}/`;
 
@@ -98,6 +101,7 @@ const prepareItem = async (workflow, item) => {
 export const createWorkflow = async (req, res) => {
   try {
     const targetUsername = cleanUsername(req.body.targetUsername);
+    const actionType = cleanActionType(req.body.actionType);
     const { accountIds } = req.body;
 
     if (!targetUsername) {
@@ -130,6 +134,7 @@ export const createWorkflow = async (req, res) => {
     const workflow = await Workflow.create({
       userId: req.userId,
       targetUsername,
+      actionType,
       status: "READY",
       totalAccounts: accounts.length,
     });
@@ -147,7 +152,7 @@ export const createWorkflow = async (req, res) => {
       action: "WORKFLOW_CREATED",
       entityType: "Workflow",
       entityId: workflow._id,
-      metadata: { targetUsername, accountCount: accounts.length },
+      metadata: { targetUsername, actionType, accountCount: accounts.length },
       req,
     });
 
@@ -263,7 +268,13 @@ export const nextWorkflowItem = async (req, res) => {
 
     if (currentItem && ["TARGET_READY", "IN_PROGRESS"].includes(currentItem.status)) {
       currentItem.status = "COMPLETED";
-      currentItem.followConfirmedAt = new Date();
+      const confirmedAt = new Date();
+      currentItem.actionConfirmedAt = confirmedAt;
+      if (workflow.actionType === "UNFOLLOW") {
+        currentItem.unfollowConfirmedAt = confirmedAt;
+      } else {
+        currentItem.followConfirmedAt = confirmedAt;
+      }
       currentItem.completedAt = new Date();
       await currentItem.save();
     }
@@ -421,7 +432,7 @@ export const deleteWorkflow = async (req, res) => {
       action: "WORKFLOW_DELETED",
       entityType: "Workflow",
       entityId: workflow._id,
-      metadata: { targetUsername: workflow.targetUsername },
+      metadata: { targetUsername: workflow.targetUsername, actionType: workflow.actionType },
       req,
     });
 

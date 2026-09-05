@@ -27,6 +27,8 @@ const WorkflowDetails = () => {
   }, [id]);
 
   const currentAccount = currentItem?.accountId;
+  const actionType = workflow?.actionType || "FOLLOW";
+  const actionLabel = actionType === "UNFOLLOW" ? "Unfollow" : "Follow";
 
   const grouped = useMemo(() => {
     return items.reduce((acc, item) => {
@@ -51,6 +53,7 @@ const WorkflowDetails = () => {
       accountId: account._id,
       username: account.username,
       targetUsername: targetWorkflow.targetUsername,
+      actionType: targetWorkflow.actionType || "FOLLOW",
       workflowId: targetWorkflow._id,
       authToken: localStorage.getItem("token"),
       apiBaseUrl: API_BASE_URL,
@@ -87,8 +90,8 @@ const WorkflowDetails = () => {
 
   return (
     <Layout
-      title={`Workflow: @${workflow.targetUsername}`}
-      subtitle="System target profile ready karta hai. Follow button user manually click karta hai."
+      title={`${actionLabel} Workflow: @${workflow.targetUsername}`}
+      subtitle={`System selected accounts ke saved sessions mein target profile open karta hai aur ${actionLabel.toLowerCase()} action run karta hai.`}
     >
       <Link className="back-link" to="/dashboard">Back to dashboard</Link>
 
@@ -99,7 +102,7 @@ const WorkflowDetails = () => {
           <div className="section-heading">
             <div>
               <h2>Current Account</h2>
-              <p>Manual follow ke baad Next Account press karo.</p>
+              <p>{actionLabel} action ke baad next account automatically open hoga. Backup ke liye Next Account available hai.</p>
             </div>
             <StatusBadge status={workflow.status} />
           </div>
@@ -109,6 +112,7 @@ const WorkflowDetails = () => {
               <span className="eyebrow">Account</span>
               <h3>@{currentAccount.username}</h3>
               <p>Target: @{workflow.targetUsername}</p>
+              <p>Action: {actionLabel}</p>
               <StatusBadge status={currentItem.status} />
               <div className="action-row">
                 <button className="primary-button" onClick={openTarget}>
@@ -125,7 +129,7 @@ const WorkflowDetails = () => {
 
           <div className="toolbar">
             <button className="primary-button" onClick={() => runAction("start", { openNext: true })}>
-              Start Workflow
+              Start {actionLabel} Workflow
             </button>
             <button className="ghost-button" onClick={() => runAction("pause")}>
               Pause Workflow

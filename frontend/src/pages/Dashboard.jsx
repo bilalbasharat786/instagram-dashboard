@@ -35,6 +35,7 @@ const Dashboard = () => {
       connected: accounts.filter((account) => account.status === "CONNECTED").length,
       authRequired: accounts.filter((account) => account.status === "AUTH_REQUIRED").length,
       running: workflows.filter((workflow) => workflow.status === "RUNNING").length,
+      unfollow: workflows.filter((workflow) => workflow.actionType === "UNFOLLOW").length,
     };
   }, [accounts, workflows]);
 
@@ -45,13 +46,14 @@ const Dashboard = () => {
   return (
     <Layout
       title="Instagram Workflow Dashboard"
-      subtitle="Authorized account management, manual follow workflow, aur resumable progress."
+      subtitle="Authorized account management, follow/unfollow workflows, aur resumable progress."
     >
       <section className="metric-grid">
         <div><strong>{metrics.total}</strong><span>Total accounts</span></div>
         <div><strong>{metrics.connected}</strong><span>Connected</span></div>
         <div><strong>{metrics.authRequired}</strong><span>Auth required</span></div>
         <div><strong>{metrics.running}</strong><span>Running workflows</span></div>
+        <div><strong>{metrics.unfollow}</strong><span>Unfollow workflows</span></div>
       </section>
 
       {metrics.authRequired > 0 && (
@@ -80,7 +82,7 @@ const Dashboard = () => {
             workflows.map((workflow) => (
               <Link className="workflow-row" to={`/workflows/${workflow._id}`} key={workflow._id}>
                 <div>
-                  <strong>@{workflow.targetUsername}</strong>
+                  <strong>{workflow.actionType === "UNFOLLOW" ? "Unfollow" : "Follow"} @{workflow.targetUsername}</strong>
                   <span>{workflow.completedAccounts || 0} / {workflow.totalAccounts} processed</span>
                 </div>
                 <StatusBadge status={workflow.status} />

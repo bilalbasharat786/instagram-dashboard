@@ -15,6 +15,13 @@ const workflowSchema = new mongoose.Schema(
       trim: true,
     },
 
+    actionType: {
+      type: String,
+      enum: ["FOLLOW", "UNFOLLOW"],
+      default: "FOLLOW",
+      index: true,
+    },
+
     status: {
       type: String,
       enum: [
