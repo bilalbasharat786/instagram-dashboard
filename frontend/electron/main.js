@@ -73,6 +73,7 @@ const postJson = async (url, token) => {
   return data;
 };
 
+// ================= MODIFIED FUNCTION START =================
 const injectWorkflowControls = async (window) => {
   await window.webContents.executeJavaScript(`
     (() => {
@@ -80,6 +81,7 @@ const injectWorkflowControls = async (window) => {
       if (existing) return;
       let openingNext = false;
 
+      // 1. Next Account Button Create aur Style Karna
       const button = document.createElement("button");
       button.id = "instaflow-next-account";
       button.textContent = "Next Account";
@@ -96,6 +98,7 @@ const injectWorkflowControls = async (window) => {
       button.style.boxShadow = "0 10px 24px rgba(0, 0, 0, 0.35)";
       button.style.cursor = "pointer";
 
+      // 2. Next Account Open karne ka function
       const openNextAccount = async (label = "Opening next...") => {
         if (openingNext) return;
 
@@ -114,6 +117,31 @@ const injectWorkflowControls = async (window) => {
         }
       };
 
+      // 3. Instagram page par Follow button dhoondna (Auto-Follow logic)
+      const triggerAutoFollow = () => {
+        setTimeout(() => {
+          // Instagram ke saare buttons nikalna
+          const buttons = Array.from(document.querySelectorAll("button"));
+          
+          // Woh button dhoondna jiska text exact "Follow" ho
+          const followButton = buttons.find(btn => btn.textContent.trim() === "Follow");
+
+          if (followButton) {
+            button.textContent = "Auto-Following...";
+            followButton.click(); // Auto click the follow button
+            
+            // Follow click hone ke baad next account par switch karna (800ms baad)
+            setTimeout(() => {
+              openNextAccount("Opening next...");
+            }, 800);
+          } else {
+            // Agar "Follow" button nahi mila (e.g. Pehle se followed hai ya net slow hai)
+            console.log("Follow button nahi mila ya pehle se followed hai.");
+          }
+        }, 2000); // 2 second ka wait/delay
+      };
+
+      // 4. Fallback Event Listener (Agar user khud manually kisi aur cheez par click kare)
       const getClickedText = (target) => {
         const control = target?.closest?.("button, [role='button'], div[tabindex='0']");
         return (control?.textContent || "").replace(/\\s+/g, " ").trim();
@@ -135,11 +163,14 @@ const injectWorkflowControls = async (window) => {
       );
 
       button.addEventListener("click", () => openNextAccount("Opening next..."));
-
       document.body.appendChild(button);
+
+      // Script inject hote hi Auto-Follow function ko chala dena
+      triggerAutoFollow();
     })();
   `);
 };
+// ================= MODIFIED FUNCTION END =================
 
 const openInstagramWindow = async ({
   accountId,
@@ -278,3 +309,4 @@ app.on("activate", async () => {
     await createMainWindow();
   }
 });
+
