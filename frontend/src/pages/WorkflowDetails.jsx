@@ -30,7 +30,7 @@ const WorkflowDetails = () => {
   const actionType = workflow?.actionType || "FOLLOW";
   const actionLabel =
     actionType === "LIKE_REEL" ? "Reel Like" : actionType === "UNFOLLOW" ? "Unfollow" : "Follow";
-  const targetLabel = actionType === "LIKE_REEL" ? "Reel" : `@${workflow.targetUsername}`;
+  const targetLabel = actionType === "LIKE_REEL" ? "Reel" : `@${workflow?.targetUsername || ""}`;
 
   const grouped = useMemo(() => {
     return items.reduce((acc, item) => {
