@@ -6,6 +6,7 @@ import StatusBadge from "./StatusBadge";
 const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
   const navigate = useNavigate();
   const [targetUsername, setTargetUsername] = useState("");
+  const [reelUrl, setReelUrl] = useState("");
   const [actionType, setActionType] = useState("FOLLOW");
   const [selectedAccounts, setSelectedAccounts] = useState([]);
   const [search, setSearch] = useState("");
@@ -49,7 +50,12 @@ const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
     event.preventDefault();
     setMessage("");
 
-    if (!targetUsername.trim()) {
+    if (actionType === "LIKE_REEL" && !reelUrl.trim()) {
+      setMessage("Instagram reel URL enter karo.");
+      return;
+    }
+
+    if (actionType !== "LIKE_REEL" && !targetUsername.trim()) {
       setMessage("Target username enter karo.");
       return;
     }
@@ -62,7 +68,8 @@ const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
     try {
       setLoading(true);
       const response = await api.post("/workflows", {
-        targetUsername: targetUsername.trim(),
+        targetUsername: actionType === "LIKE_REEL" ? undefined : targetUsername.trim(),
+        reelUrl: actionType === "LIKE_REEL" ? reelUrl.trim() : undefined,
         actionType,
         accountIds: selectedAccounts,
       });
@@ -81,27 +88,40 @@ const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
       <div className="section-heading">
         <div>
           <h2>Create Workflow</h2>
-          <p>Follow ya unfollow action choose karo, target username enter karo, phir accounts select karo.</p>
+          <p>Follow/unfollow ke liye username, reel like workflow ke liye reel URL enter karo.</p>
         </div>
         <strong>{selectedAccounts.length} selected</strong>
       </div>
 
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
-          <label>
-            Target Username
-            <input
-              type="text"
-              placeholder="bilal.writx"
-              value={targetUsername}
-              onChange={(event) => setTargetUsername(event.target.value)}
-            />
-          </label>
+          {actionType === "LIKE_REEL" ? (
+            <label>
+              Reel URL
+              <input
+                type="url"
+                placeholder="https://www.instagram.com/reel/.../"
+                value={reelUrl}
+                onChange={(event) => setReelUrl(event.target.value)}
+              />
+            </label>
+          ) : (
+            <label>
+              Target Username
+              <input
+                type="text"
+                placeholder="bilal.writx"
+                value={targetUsername}
+                onChange={(event) => setTargetUsername(event.target.value)}
+              />
+            </label>
+          )}
           <label>
             Action
             <select value={actionType} onChange={(event) => setActionType(event.target.value)}>
               <option value="FOLLOW">Follow</option>
               <option value="UNFOLLOW">Unfollow</option>
+              <option value="LIKE_REEL">Reel Like (Manual)</option>
             </select>
           </label>
           <label>
@@ -152,7 +172,15 @@ const CreateWorkflow = ({ accounts, onWorkflowCreated }) => {
         {message && <div className="alert warning">{message}</div>}
 
         <button className="primary-button" type="submit" disabled={loading}>
-          {loading ? "Creating..." : `Start ${actionType === "UNFOLLOW" ? "Unfollow" : "Follow"} Workflow Setup`}
+          {loading
+            ? "Creating..."
+            : `Start ${
+                actionType === "LIKE_REEL"
+                  ? "Reel Like"
+                  : actionType === "UNFOLLOW"
+                    ? "Unfollow"
+                    : "Follow"
+              } Workflow Setup`}
         </button>
       </form>
     </section>

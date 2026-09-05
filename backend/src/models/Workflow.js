@@ -11,13 +11,22 @@ const workflowSchema = new mongoose.Schema(
 
     targetUsername: {
       type: String,
-      required: true,
+      required() {
+        return this.actionType !== "LIKE_REEL";
+      },
       trim: true,
+      default: null,
+    },
+
+    reelUrl: {
+      type: String,
+      trim: true,
+      default: null,
     },
 
     actionType: {
       type: String,
-      enum: ["FOLLOW", "UNFOLLOW"],
+      enum: ["FOLLOW", "UNFOLLOW", "LIKE_REEL"],
       default: "FOLLOW",
       index: true,
     },

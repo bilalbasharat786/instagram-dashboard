@@ -6,11 +6,37 @@ import { writeAuditLog } from "../utils/audit.js";
 const cleanUsername = (username = "") =>
   username.trim().replace(/^@/, "").toLowerCase();
 
-const cleanActionType = (actionType = "FOLLOW") =>
-  String(actionType).trim().toUpperCase() === "UNFOLLOW" ? "UNFOLLOW" : "FOLLOW";
+const cleanActionType = (actionType = "FOLLOW") => {
+  const type = String(actionType).trim().toUpperCase();
+  return ["FOLLOW", "UNFOLLOW", "LIKE_REEL"].includes(type) ? type : "FOLLOW";
+};
 
 const targetUrlFor = (targetUsername) =>
   `https://www.instagram.com/${encodeURIComponent(targetUsername)}/`;
+
+const cleanReelUrl = (rawUrl = "") => {
+  const value = String(rawUrl).trim();
+
+  if (!value) return "";
+
+  try {
+    const url = new URL(value);
+    const host = url.hostname.replace(/^www\./, "");
+    const isInstagram = host === "instagram.com";
+    const isReel = /^\/reel\/[^/]+\/?$/i.test(url.pathname);
+
+    if (!isInstagram || !isReel) return "";
+
+    url.protocol = "https:";
+    url.hostname = "www.instagram.com";
+    url.search = "";
+    url.hash = "";
+
+    return url.toString();
+  } catch {
+    return "";
+  }
+};
 
 const loadWorkflow = async (id, userId) =>
   Workflow.findOne({
@@ -83,7 +109,10 @@ const prepareItem = async (workflow, item) => {
   }
 
   item.status = "TARGET_READY";
-  item.targetProfileUrl = targetUrlFor(workflow.targetUsername);
+  item.targetProfileUrl =
+    workflow.actionType === "LIKE_REEL"
+      ? workflow.reelUrl
+      : targetUrlFor(workflow.targetUsername);
   item.startedAt = item.startedAt || new Date();
   item.targetPreparedAt = new Date();
   item.errorMessage = null;
@@ -102,9 +131,17 @@ export const createWorkflow = async (req, res) => {
   try {
     const targetUsername = cleanUsername(req.body.targetUsername);
     const actionType = cleanActionType(req.body.actionType);
+    const reelUrl = cleanReelUrl(req.body.reelUrl);
     const { accountIds } = req.body;
 
-    if (!targetUsername) {
+    if (actionType === "LIKE_REEL" && !reelUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid Instagram reel URL required hai.",
+      });
+    }
+
+    if (actionType !== "LIKE_REEL" && !targetUsername) {
       return res.status(400).json({
         success: false,
         message: "Target username required hai.",
@@ -133,7 +170,8 @@ export const createWorkflow = async (req, res) => {
 
     const workflow = await Workflow.create({
       userId: req.userId,
-      targetUsername,
+      targetUsername: actionType === "LIKE_REEL" ? null : targetUsername,
+      reelUrl: actionType === "LIKE_REEL" ? reelUrl : null,
       actionType,
       status: "READY",
       totalAccounts: accounts.length,
@@ -152,7 +190,7 @@ export const createWorkflow = async (req, res) => {
       action: "WORKFLOW_CREATED",
       entityType: "Workflow",
       entityId: workflow._id,
-      metadata: { targetUsername, actionType, accountCount: accounts.length },
+      metadata: { targetUsername, reelUrl, actionType, accountCount: accounts.length },
       req,
     });
 
@@ -270,7 +308,9 @@ export const nextWorkflowItem = async (req, res) => {
       currentItem.status = "COMPLETED";
       const confirmedAt = new Date();
       currentItem.actionConfirmedAt = confirmedAt;
-      if (workflow.actionType === "UNFOLLOW") {
+      if (workflow.actionType === "LIKE_REEL") {
+        currentItem.likeConfirmedAt = confirmedAt;
+      } else if (workflow.actionType === "UNFOLLOW") {
         currentItem.unfollowConfirmedAt = confirmedAt;
       } else {
         currentItem.followConfirmedAt = confirmedAt;
@@ -432,7 +472,11 @@ export const deleteWorkflow = async (req, res) => {
       action: "WORKFLOW_DELETED",
       entityType: "Workflow",
       entityId: workflow._id,
-      metadata: { targetUsername: workflow.targetUsername, actionType: workflow.actionType },
+      metadata: {
+        targetUsername: workflow.targetUsername,
+        reelUrl: workflow.reelUrl,
+        actionType: workflow.actionType,
+      },
       req,
     });
 

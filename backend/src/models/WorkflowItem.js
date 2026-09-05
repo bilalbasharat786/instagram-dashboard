@@ -24,6 +24,7 @@ const workflowItemSchema = new mongoose.Schema(
         "ACTION_CONFIRMED",
         "FOLLOW_CONFIRMED",
         "UNFOLLOW_CONFIRMED",
+        "LIKE_CONFIRMED",
         "COMPLETED",
         "AUTH_REQUIRED",
         "ERROR",
@@ -63,6 +64,11 @@ const workflowItemSchema = new mongoose.Schema(
     },
 
     actionConfirmedAt: {
+      type: Date,
+      default: null,
+    },
+
+    likeConfirmedAt: {
       type: Date,
       default: null,
     },

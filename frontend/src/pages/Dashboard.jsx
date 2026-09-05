@@ -36,6 +36,7 @@ const Dashboard = () => {
       authRequired: accounts.filter((account) => account.status === "AUTH_REQUIRED").length,
       running: workflows.filter((workflow) => workflow.status === "RUNNING").length,
       unfollow: workflows.filter((workflow) => workflow.actionType === "UNFOLLOW").length,
+      reelLike: workflows.filter((workflow) => workflow.actionType === "LIKE_REEL").length,
     };
   }, [accounts, workflows]);
 
@@ -46,7 +47,7 @@ const Dashboard = () => {
   return (
     <Layout
       title="Instagram Workflow Dashboard"
-      subtitle="Authorized account management, follow/unfollow workflows, aur resumable progress."
+      subtitle="Authorized account management, follow/unfollow/reel workflows, aur resumable progress."
     >
       <section className="metric-grid">
         <div><strong>{metrics.total}</strong><span>Total accounts</span></div>
@@ -54,6 +55,7 @@ const Dashboard = () => {
         <div><strong>{metrics.authRequired}</strong><span>Auth required</span></div>
         <div><strong>{metrics.running}</strong><span>Running workflows</span></div>
         <div><strong>{metrics.unfollow}</strong><span>Unfollow workflows</span></div>
+        <div><strong>{metrics.reelLike}</strong><span>Reel like workflows</span></div>
       </section>
 
       {metrics.authRequired > 0 && (
@@ -82,7 +84,14 @@ const Dashboard = () => {
             workflows.map((workflow) => (
               <Link className="workflow-row" to={`/workflows/${workflow._id}`} key={workflow._id}>
                 <div>
-                  <strong>{workflow.actionType === "UNFOLLOW" ? "Unfollow" : "Follow"} @{workflow.targetUsername}</strong>
+                  <strong>
+                    {workflow.actionType === "LIKE_REEL"
+                      ? "Reel Like"
+                      : workflow.actionType === "UNFOLLOW"
+                        ? "Unfollow"
+                        : "Follow"}{" "}
+                    {workflow.actionType === "LIKE_REEL" ? workflow.reelUrl : `@${workflow.targetUsername}`}
+                  </strong>
                   <span>{workflow.completedAccounts || 0} / {workflow.totalAccounts} processed</span>
                 </div>
                 <StatusBadge status={workflow.status} />

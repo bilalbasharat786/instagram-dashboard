@@ -19,6 +19,16 @@ const targetUrlFor = (targetUsername) => {
     : "https://www.instagram.com/";
 };
 
+const destinationUrlFor = ({ targetUrl, targetUsername }) => {
+  const url = String(targetUrl || "").trim();
+
+  if (url.startsWith("https://www.instagram.com/")) {
+    return url;
+  }
+
+  return targetUrlFor(targetUsername);
+};
+
 const createMainWindow = async () => {
   const window = new BrowserWindow({
     width: 1320,
@@ -75,7 +85,9 @@ const postJson = async (url, token) => {
 
 // ================= MODIFIED FUNCTION START =================
 const injectWorkflowControls = async (window, actionType = "FOLLOW") => {
-  const safeActionType = actionType === "UNFOLLOW" ? "UNFOLLOW" : "FOLLOW";
+  const safeActionType = ["FOLLOW", "UNFOLLOW", "LIKE_REEL"].includes(actionType)
+    ? actionType
+    : "FOLLOW";
 
   await window.webContents.executeJavaScript(`
     (() => {
@@ -83,12 +95,13 @@ const injectWorkflowControls = async (window, actionType = "FOLLOW") => {
       if (existing) return;
       let openingNext = false;
       const actionType = ${JSON.stringify(safeActionType)};
-      const actionLabel = actionType === "UNFOLLOW" ? "Unfollow" : "Follow";
+      const actionLabel =
+        actionType === "LIKE_REEL" ? "Like Reel" : actionType === "UNFOLLOW" ? "Unfollow" : "Follow";
 
       // 1. Next Account Button Create aur Style Karna
       const button = document.createElement("button");
       button.id = "instaflow-next-account";
-      button.textContent = "Next Account";
+      button.textContent = actionType === "LIKE_REEL" ? "Like Manually, Then Next" : "Next Account";
       button.style.position = "fixed";
       button.style.right = "18px";
       button.style.top = "72px";
@@ -121,11 +134,66 @@ const injectWorkflowControls = async (window, actionType = "FOLLOW") => {
         }
       };
 
-      const getButtonText = (element) => (element?.textContent || "").replace(/\\s+/g, " ").trim();
-      const findButtonByText = (texts) => {
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const getButtonText = (element) =>
+        (element?.innerText || element?.textContent || "").replace(/\\s+/g, " ").trim();
+      const getAriaText = (element) =>
+        (element?.getAttribute?.("aria-label") || element?.getAttribute?.("title") || "").replace(/\\s+/g, " ").trim();
+      const isVisible = (element) => {
+        if (!element) return false;
+        const rect = element.getBoundingClientRect();
+        const styles = window.getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 && styles.visibility !== "hidden" && styles.display !== "none";
+      };
+      const actionableSelector = [
+        "button",
+        "[role='button']",
+        "div[tabindex='0']",
+        "span[tabindex='0']",
+        "a[href]",
+      ].join(",");
+      const textMatches = (element, texts) => {
         const wanted = Array.isArray(texts) ? texts : [texts];
-        return Array.from(document.querySelectorAll("button, [role='button']"))
-          .find((btn) => wanted.includes(getButtonText(btn)));
+        const visibleText = getButtonText(element);
+        const ariaText = getAriaText(element);
+        return wanted.some((text) => visibleText === text || ariaText === text);
+      };
+      const findActionableByText = (texts, root = document) => {
+        const candidates = Array.from(root.querySelectorAll(actionableSelector));
+        return candidates.find((candidate) => isVisible(candidate) && textMatches(candidate, texts));
+      };
+      const findDialogActionByText = (texts) => {
+        const dialog = document.querySelector("[role='dialog']");
+        return findActionableByText(texts, dialog || document);
+      };
+      const clickElement = (element) => {
+        if (!element) return false;
+        element.scrollIntoView?.({ block: "center", inline: "center" });
+        element.focus?.();
+        ["pointerdown", "mousedown", "pointerup", "mouseup", "click"].forEach((type) => {
+          element.dispatchEvent(
+            new MouseEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              view: window,
+            })
+          );
+        });
+        return true;
+      };
+      const waitForActionableByText = async (texts, options = {}) => {
+        const timeoutMs = options.timeoutMs || 12000;
+        const intervalMs = options.intervalMs || 350;
+        const find = options.dialogOnly ? findDialogActionByText : findActionableByText;
+        const startedAt = Date.now();
+
+        while (Date.now() - startedAt < timeoutMs) {
+          const element = find(texts);
+          if (element) return element;
+          await sleep(intervalMs);
+        }
+
+        return null;
       };
 
       const finishAction = (label = actionLabel + " clicked...") => {
@@ -136,12 +204,12 @@ const injectWorkflowControls = async (window, actionType = "FOLLOW") => {
       };
 
       const triggerAutoFollow = () => {
-        setTimeout(() => {
-          const followButton = findButtonByText("Follow");
+        setTimeout(async () => {
+          const followButton = await waitForActionableByText("Follow", { timeoutMs: 12000 });
 
           if (followButton) {
             button.textContent = "Auto-Following...";
-            followButton.click();
+            clickElement(followButton);
             finishAction("Follow clicked...");
           } else {
             console.log("Follow button nahi mila ya pehle se followed hai.");
@@ -150,8 +218,10 @@ const injectWorkflowControls = async (window, actionType = "FOLLOW") => {
       };
 
       const triggerAutoUnfollow = () => {
-        setTimeout(() => {
-          const followingButton = findButtonByText(["Following", "Requested"]);
+        setTimeout(async () => {
+          const followingButton = await waitForActionableByText(["Following", "Requested"], {
+            timeoutMs: 12000,
+          });
 
           if (!followingButton) {
             console.log("Following/Requested button nahi mila ya account already unfollowed hai.");
@@ -159,21 +229,22 @@ const injectWorkflowControls = async (window, actionType = "FOLLOW") => {
           }
 
           button.textContent = "Opening unfollow...";
-          followingButton.click();
+          clickElement(followingButton);
 
-          setTimeout(() => {
-            const unfollowButton = findButtonByText("Unfollow");
+          const unfollowButton = await waitForActionableByText("Unfollow", {
+            timeoutMs: 12000,
+            dialogOnly: true,
+          });
 
-            if (unfollowButton) {
-              button.textContent = "Auto-Unfollowing...";
-              unfollowButton.click();
-              finishAction("Unfollow clicked...");
-            } else {
-              button.disabled = false;
-              button.textContent = "Click Unfollow / Next";
-              console.log("Unfollow confirmation button nahi mila.");
-            }
-          }, 900);
+          if (unfollowButton) {
+            button.textContent = "Auto-Unfollowing...";
+            clickElement(unfollowButton);
+            finishAction("Unfollow clicked...");
+          } else {
+            button.disabled = false;
+            button.textContent = "Click Unfollow / Next";
+            console.log("Unfollow confirmation button nahi mila.");
+          }
         }, 2000);
       };
 
@@ -203,7 +274,9 @@ const injectWorkflowControls = async (window, actionType = "FOLLOW") => {
       button.addEventListener("click", () => openNextAccount("Opening next..."));
       document.body.appendChild(button);
 
-      if (actionType === "UNFOLLOW") {
+      if (actionType === "LIKE_REEL") {
+        console.log("Safe reel like workflow ready. Like manually, then press Next Account.");
+      } else if (actionType === "UNFOLLOW") {
         triggerAutoUnfollow();
       } else {
         triggerAutoFollow();
@@ -217,6 +290,7 @@ const openInstagramWindow = async ({
   accountId,
   username,
   targetUsername,
+  targetUrl,
   actionType = "FOLLOW",
   mode,
   workflowId,
@@ -230,7 +304,7 @@ const openInstagramWindow = async ({
   }
 
   const partition = `persist:instagram-${safeAccountId}`;
-  const url = targetUrlFor(targetUsername);
+  const url = destinationUrlFor({ targetUrl, targetUsername });
 
   const window = new BrowserWindow({
     width: 1180,
@@ -238,7 +312,7 @@ const openInstagramWindow = async ({
     title:
       mode === "login"
         ? `Login @${username}`
-        : `${actionType === "UNFOLLOW" ? "Unfollow" : "Follow"} @${username} -> @${targetUsername}`,
+        : `${actionType === "LIKE_REEL" ? "Like Reel" : actionType === "UNFOLLOW" ? "Unfollow" : "Follow"} @${username}`,
     webPreferences: {
       partition,
       preload: path.join(__dirname, "preload.cjs"),
@@ -267,6 +341,7 @@ const openInstagramWindow = async ({
       authToken,
       apiBaseUrl: String(apiBaseUrl).replace(/\/$/, ""),
       targetUsername,
+      targetUrl,
       actionType,
     });
 
@@ -326,6 +401,7 @@ app.whenReady().then(async () => {
       accountId: nextAccount._id,
       username: nextAccount.username,
       targetUsername: result.workflow?.targetUsername || context.targetUsername,
+      targetUrl: nextItem.targetProfileUrl || context.targetUrl,
       actionType: result.workflow?.actionType || context.actionType,
       mode: "target",
       workflowId: context.workflowId,

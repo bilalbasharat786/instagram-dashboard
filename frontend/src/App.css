@@ -117,7 +117,7 @@
 }
 
 .metric-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .detail-grid {
@@ -156,7 +156,7 @@
 
 .form-grid {
   display: grid;
-  grid-template-columns: 1.3fr 170px 1fr 180px;
+  grid-template-columns: 1.3fr 210px 1fr 180px;
   gap: 14px;
 }
 

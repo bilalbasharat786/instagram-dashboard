@@ -8,6 +8,7 @@ const toneByStatus = {
   COMPLETED: "success",
   FOLLOW_CONFIRMED: "success",
   UNFOLLOW_CONFIRMED: "success",
+  LIKE_CONFIRMED: "success",
   AUTH_REQUIRED: "warning",
   PENDING_AUTH: "warning",
   PENDING: "muted",

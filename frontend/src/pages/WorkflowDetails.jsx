@@ -28,7 +28,9 @@ const WorkflowDetails = () => {
 
   const currentAccount = currentItem?.accountId;
   const actionType = workflow?.actionType || "FOLLOW";
-  const actionLabel = actionType === "UNFOLLOW" ? "Unfollow" : "Follow";
+  const actionLabel =
+    actionType === "LIKE_REEL" ? "Reel Like" : actionType === "UNFOLLOW" ? "Unfollow" : "Follow";
+  const targetLabel = actionType === "LIKE_REEL" ? "Reel" : `@${workflow.targetUsername}`;
 
   const grouped = useMemo(() => {
     return items.reduce((acc, item) => {
@@ -53,6 +55,7 @@ const WorkflowDetails = () => {
       accountId: account._id,
       username: account.username,
       targetUsername: targetWorkflow.targetUsername,
+      targetUrl: item.targetProfileUrl,
       actionType: targetWorkflow.actionType || "FOLLOW",
       workflowId: targetWorkflow._id,
       authToken: localStorage.getItem("token"),
@@ -90,8 +93,12 @@ const WorkflowDetails = () => {
 
   return (
     <Layout
-      title={`${actionLabel} Workflow: @${workflow.targetUsername}`}
-      subtitle={`System selected accounts ke saved sessions mein target profile open karta hai aur ${actionLabel.toLowerCase()} action run karta hai.`}
+      title={`${actionLabel} Workflow: ${targetLabel}`}
+      subtitle={
+        actionType === "LIKE_REEL"
+          ? "System selected accounts ke saved sessions mein reel open karta hai. Like manually karo, phir Next Account press karo."
+          : `System selected accounts ke saved sessions mein target profile open karta hai aur ${actionLabel.toLowerCase()} action run karta hai.`
+      }
     >
       <Link className="back-link" to="/dashboard">Back to dashboard</Link>
 
@@ -102,7 +109,11 @@ const WorkflowDetails = () => {
           <div className="section-heading">
             <div>
               <h2>Current Account</h2>
-              <p>{actionLabel} action ke baad next account automatically open hoga. Backup ke liye Next Account available hai.</p>
+              <p>
+                {actionType === "LIKE_REEL"
+                  ? "Reel like manually karne ke baad Next Account press karo."
+                  : `${actionLabel} action ke baad next account automatically open hoga. Backup ke liye Next Account available hai.`}
+              </p>
             </div>
             <StatusBadge status={workflow.status} />
           </div>
@@ -111,7 +122,7 @@ const WorkflowDetails = () => {
             <div className="target-card">
               <span className="eyebrow">Account</span>
               <h3>@{currentAccount.username}</h3>
-              <p>Target: @{workflow.targetUsername}</p>
+              <p>Target: {targetLabel}</p>
               <p>Action: {actionLabel}</p>
               <StatusBadge status={currentItem.status} />
               <div className="action-row">
